@@ -167,16 +167,24 @@ const GenerateCats = () => {
         <div style={{ position: 'relative', width: '100%', textAlign: 'center' }}>
           {imageUrl && (
             <img
-              ref={imgRef}
-              src={imageUrl}
-              alt="Generated"
-              crossOrigin="anonymous"
-              style={{ width: isMobile ? '70%' : '40%', maxWidth: '300px', borderRadius: '8px', margin: '0 auto', maxHeight: '300px', objectFit: 'countain' }}
-              onError={(e) => {
-                console.error('Error loading image:', e);
-                e.target.src = 'https://cataas.com/cat?t=' + new Date().getTime();
-              }}
-            />
+            ref={imgRef}
+            src={imageUrl}
+            alt="Generated"
+            crossOrigin="anonymous"
+            style={{
+              width: isMobile ? '70%' : '40%',
+              maxWidth: '300px',
+              maxHeight: '300px',
+              borderRadius: '8px',
+              margin: '0 auto',
+              objectFit: 'contain' 
+            }}
+            onError={(e) => {
+              console.error('Error loading image:', e);
+              e.target.src = 'https://cataas.com/cat?t=' + new Date().getTime();
+            }}
+          />
+          
           )}
           <Button
             icon={!liked ? <HeartOutlined style={{ color: 'red', fontSize: "40px" }} /> : <HeartFilled style={{ color: 'red', fontSize: "40px" }} />}
