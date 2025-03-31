@@ -164,7 +164,7 @@ const GenerateCats = () => {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '16px' }}>
-        <div style={{ position: 'relative', width: '100%', textAlign: 'center', maxHeight: '300px', overflow: 'hidden' }}>
+        <div style={{  width: '100%', textAlign: 'center', Height: '30px', overflow: 'hidden', borderRadius: '8px',padding: '10px' }}>
           {imageUrl && (
             <img
             ref={imgRef}

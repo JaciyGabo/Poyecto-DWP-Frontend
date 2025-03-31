@@ -7,7 +7,7 @@ const CatsShaWithMe = ({ screenSize }) => {
     isMobile: window.innerWidth <= 768,
     isTablet: window.innerWidth > 768 && window.innerWidth <= 992
   };
-
+ 
   const [sharedCats, setSharedCats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -170,11 +170,10 @@ const CatsShaWithMe = ({ screenSize }) => {
                   justifyContent: "center",
                   padding: "4px 0"
                 }}>
-                  <Image
+                  <img
                     src={cat.image}
                     alt={`Gato compartido por ${cat.name}`}
                     onClick={() => setPreviewVisible(true)} // Muestra la vista previa al hacer clic
-                    preview={{ visible: previewVisible, onVisibleChange: setPreviewVisible }} // Controla la visibilidad
                     onError={(e) => {
                       console.error("Error cargando imagen:", cat.image);
                       e.target.src = "https://placekitten.com/200/200"; // Imagen de fallback
