@@ -171,7 +171,7 @@ const GenerateCats = () => {
               src={imageUrl}
               alt="Generated"
               crossOrigin="anonymous"
-              style={{ width: isMobile ? '70%' : '40%', maxWidth: '300px', borderRadius: '8px', margin: '0 auto' }}
+              style={{ width: isMobile ? '70%' : '40%', maxWidth: '300px', borderRadius: '8px', margin: '0 auto', maxHeight: '350px' }}
               onError={(e) => {
                 console.error('Error loading image:', e);
                 e.target.src = 'https://cataas.com/cat?t=' + new Date().getTime();
