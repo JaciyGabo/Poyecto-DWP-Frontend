@@ -1,0 +1,106 @@
+.ant-menu-item {
+  color: #bac8d3 !important; /* Color por defecto */
+  font-size: 28px !important; /* Tamaño de la letra */
+}
+
+.ant-menu-item-selected {
+  color: #ffc857 !important; /* Color cuando está seleccionado */
+}
+
+ /* Elimina la línea inferior del ítem seleccionado */
+ .custom-menu .ant-menu-item.ant-menu-item-selected::after {
+  border-bottom: none !important;
+}
+
+/* Elimina la línea inferior en hover */
+.custom-menu .ant-menu-item:hover::after {
+  border-bottom: none !important;
+}
+
+
+/* dash.css */
+:root {
+  --header-height: 100px;
+}
+
+/* Estilos generales */
+.main-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Menú personalizado */
+.custom-menu {
+  color: white !important;
+}
+
+.custom-menu .ant-menu-item {
+  color: white !important;
+}
+
+.custom-menu .ant-menu-item-selected {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+.custom-menu .ant-menu-item:hover {
+  color: #FFC857 !important;
+}
+
+/* Sobreescribir estilos de Ant Design para responsividad */
+.ant-layout-content {
+  flex: 1;
+}
+
+/* Media queries */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 70px;
+  }
+  
+  .responsive-header {
+    padding: 0 10px !important;
+  }
+  
+  .custom-menu {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 10px;
+    margin-top: 10px;
+  }
+  
+  .custom-menu .ant-menu-item {
+    height: 40px;
+    line-height: 40px;
+    margin: 0 !important;
+    padding: 0 16px !important;
+  }
+}
+
+/* Ajustes adicionales para pantallas muy pequeñas */
+@media (max-width: 480px) {
+  .ant-card {
+    padding: 10px !important;
+  }
+}
+
+/* Para navegadores WebKit (Chrome, Safari) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #09555B;
+  border-radius: 3px;
+}
+
+.ant-image-img {
+  display: block !important;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
