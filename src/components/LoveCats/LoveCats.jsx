@@ -1,5 +1,5 @@
 import { Card, Button, Row, Col, Image, message, Modal, Select, Input } from "antd";
-import { HeartOutlined, HeartFilled, DownloadOutlined, SyncOutlined } from "@ant-design/icons";
+import { HeartOutlined, HeartFilled, DownloadOutlined, ShareAltOutlined } from "@ant-design/icons";
 import { useState, useEffect, useRef } from "react";
 import { getFavoriteCats, shareCatPhoto, getFriendsList, removeFavorite } from '../../api/api';
 
@@ -43,9 +43,11 @@ const LoveCats = ({ screenSize }) => {
     }
   };
 
+
   const loadFriends = async () => {
     try {
       const friendsList = await getFriendsList();
+      console.log(friendsList)
       setFriends(friendsList);
     } catch (error) {
       console.error('Error fetching friends:', error);
@@ -78,43 +80,52 @@ const LoveCats = ({ screenSize }) => {
   }, [loading, hasMore, lastVisible]);
 
   // Función para descargar la imagen que se está mostrando
-  const handleDownload = (catId, catName = 'cat-image') => {
+  const handleDownload = (catId, fileName) => {
     try {
-      const imgElement = imageRefs.current[catId];
+      // Obtener la referencia de la imagen
+      const imgElement = document.querySelector(`img[alt="${fileName}"]`);
+
       if (!imgElement) {
-        message.error('No se pudo encontrar la imagen');
-        console.error('No image reference found for:', catId);
+        message.error("No se pudo encontrar la imagen");
         return;
       }
 
-      // Crear un canvas para capturar la imagen actual
-      const canvas = document.createElement('canvas');
-      canvas.width = imgElement.naturalWidth || imgElement.width;
-      canvas.height = imgElement.naturalHeight || imgElement.height;
+      // Crear un canvas con las dimensiones de la imagen
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
-      const ctx = canvas.getContext('2d');
-      // Dibujar la imagen actual en el canvas
+      // Establecer las dimensiones del canvas
+      canvas.width = imgElement.naturalWidth;
+      canvas.height = imgElement.naturalHeight;
+
+      // Dibujar la imagen en el canvas
       ctx.drawImage(imgElement, 0, 0);
 
-      // Convertir a blob y descargar
+      // Convertir el canvas a un blob
       canvas.toBlob((blob) => {
+        // Crear una URL para el blob
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `${catName.replace(/\s+/g, '-').toLowerCase()}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        message.success('¡Imagen descargada con éxito!');
-      }, 'image/jpeg', 0.95);
+
+        // Crear un enlace de descarga
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${fileName || 'cat-image'}.jpg`;
+
+        // Añadir el enlace al documento y hacer clic en él
+        document.body.appendChild(link);
+        link.click();
+
+        // Eliminar el enlace y liberar la URL
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+
+        message.success("Imagen descargada correctamente");
+      }, "image/jpeg", 0.9); // Formato JPEG con 90% de calidad
     } catch (error) {
-      console.error('Error al descargar la imagen:', error);
-      message.error('No se pudo descargar la imagen');
+      console.error("Error al descargar la imagen:", error);
+      message.error("No se pudo descargar la imagen");
     }
   };
-
   const openShareModal = (cat) => {
     if (friends.length === 0) {
       message.warning('No tienes amigos para compartir');
@@ -148,15 +159,28 @@ const LoveCats = ({ screenSize }) => {
 
   const handleLike = async (catId) => {
     try {
+      // Llamada a la API para eliminar el favorito
       await removeFavorite(catId);
+
+      // Eliminar del estado de React
       setFavoriteCats((prevFavorites) => prevFavorites.filter(cat => cat.id !== catId));
+
+      // IMPORTANTE: Actualizar el localStorage con la clave correcta
+      const storedFavorites = JSON.parse(localStorage.getItem('catFavorites') || '[]');
+      const updatedFavorites = storedFavorites.filter(cat => cat.id !== catId);
+      localStorage.setItem('catFavorites', JSON.stringify(updatedFavorites));
+
+      // También actualizar con un evento personalizado para la comunicación entre componentes
+      window.dispatchEvent(new CustomEvent('favoritesUpdated', {
+        detail: { favorites: updatedFavorites }
+      }));
+
       message.success("Gato eliminado de favoritos");
     } catch (error) {
       console.error("Error removing favorite:", error);
       message.error(error.message || "Error al eliminar el favorito");
     }
   };
-  
 
   return (
     <Col xs={24} sm={24} md={16} lg={17} xl={17}>
@@ -166,14 +190,15 @@ const LoveCats = ({ screenSize }) => {
           return (
             <Col xs={12} sm={12} md={isTablet ? 12 : 8} lg={8} xl={8} key={catId}>
               <Card
-                style={{  backgroundColor: "#dfe6e9", borderRadius: "15px", padding: isMobile ? "5px" : "10px", textAlign: "center", height: "100%", display: "flex", flexDirection: "column" }}
+                style={{ backgroundColor: "#dfe6e9", borderRadius: "15px", padding: isMobile ? "5px" : "10px", textAlign: "center", height: "100%", display: "flex", flexDirection: "column" }}
                 bodyStyle={{ padding: isMobile ? "8px" : "12px", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}
                 cover={
                   <div
                     style={{ overflow: "hidden", borderRadius: "10px", height: isMobile ? "120px" : "150px", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     {/* Usamos una imagen normal en lugar del componente Image de Ant Design para mejor control */}
-                    <img
+                    <Image
+
                       ref={el => imageRefs.current[catId] = el}
                       src={cat.url}
                       alt={cat.text || "Gato favorito"}
@@ -221,7 +246,7 @@ const LoveCats = ({ screenSize }) => {
                     <Col>
                       <Button
                         shape="circle"
-                        icon={<SyncOutlined />}
+                        icon={<ShareAltOutlined />}
                         size={isMobile ? "small" : "middle"}
                         onClick={() => openShareModal(cat)}
                       />
@@ -254,7 +279,7 @@ const LoveCats = ({ screenSize }) => {
                       style={{ width: '100%' }}
                       placeholder="Buscar amigo..."
                       onChange={setSelectedFriend}
-                      value={selectedFriend}
+                      value={friends.find(f => f.email === selectedFriend)?.username || selectedFriend}
                       showSearch
                       optionFilterProp="children"
                       filterOption={(input, option) =>
@@ -262,8 +287,8 @@ const LoveCats = ({ screenSize }) => {
                       }
                     >
                       {friends.map(friend => (
-                        <Option key={friend} value={friend}>
-                          {friend.split('@')[0]}
+                        <Option key={friend.email} value={friend.email}>
+                          {friend.username}
                         </Option>
                       ))}
                     </Select>

@@ -1,13 +1,14 @@
-import { Card, Col, Avatar, Image, message } from "antd";
+import { Card, Col, Avatar, Image as AntImage, message, Button } from "antd";
 import { useState, useEffect } from "react";
 import { getSharedCats } from '../../api/api';
+import { DownloadOutlined } from "@ant-design/icons";
 
 const CatsShaWithMe = ({ screenSize }) => {
   const { isMobile, isTablet } = screenSize || {
     isMobile: window.innerWidth <= 768,
     isTablet: window.innerWidth > 768 && window.innerWidth <= 992
   };
- 
+
   const [sharedCats, setSharedCats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -22,6 +23,59 @@ const CatsShaWithMe = ({ screenSize }) => {
     } catch (error) {
       console.error("Error descargando imagen:", error);
       return "https://placekitten.com/200/200"; // Imagen de fallback
+    }
+  };
+
+  const handleDownload = (imageUrl, catName) => {
+    try {
+      // Crear un elemento de imagen temporal para asegurar que la imagen está cargada
+      const img = new Image();
+      img.crossOrigin = "anonymous"; // Importante para evitar problemas CORS
+
+      img.onload = () => {
+        // Crear un canvas con las dimensiones de la imagen
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Establecer las dimensiones del canvas
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+
+        // Dibujar la imagen en el canvas
+        ctx.drawImage(img, 0, 0);
+
+        // Convertir el canvas a un blob
+        canvas.toBlob((blob) => {
+          // Crear una URL para el blob
+          const url = URL.createObjectURL(blob);
+
+          // Crear un enlace de descarga
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${catName || 'gato-compartido'}.jpg`;
+
+          // Añadir el enlace al documento y hacer clic en él
+          document.body.appendChild(link);
+          link.click();
+
+          // Eliminar el enlace y liberar la URL
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+
+          message.success("Imagen descargada correctamente");
+        }, "image/jpeg", 0.9); // Formato JPEG con 90% de calidad
+      };
+
+      img.onerror = () => {
+        message.error("Error al cargar la imagen para descargar");
+      };
+
+      // Asignar la URL de la imagen
+      img.src = imageUrl;
+
+    } catch (error) {
+      console.error("Error al descargar la imagen:", error);
+      message.error("No se pudo descargar la imagen");
     }
   };
 
@@ -167,38 +221,57 @@ const CatsShaWithMe = ({ screenSize }) => {
 
                 <div style={{
                   display: "flex",
-                  justifyContent: "center",
+                  flexDirection: "column",
+                  alignItems: "center",
                   padding: "4px 0"
                 }}>
-                  <img
+                  <AntImage
                     src={cat.image}
                     alt={`Gato compartido por ${cat.name}`}
-                    onClick={() => setPreviewVisible(true)} // Muestra la vista previa al hacer clic
+                    onClick={() => setPreviewVisible(true)}
                     onError={(e) => {
                       console.error("Error cargando imagen:", cat.image);
-                      e.target.src = "https://placekitten.com/200/200"; // Imagen de fallback
+                      e.target.src = "https://placekitten.com/200/200";
                     }}
                     crossOrigin="anonymous"
+                    style={{ marginBottom: "8px" }}
                   />
-
-
-                </div>
-
-                <div style={{
+                  <div style={{
                   textAlign: "center",
-                  background: "rgba(255, 200, 87, 0.3)",
+                  background: "rgba(255, 200, 87)",
                   borderRadius: "6px",
+                  border: "1px solid rgba(47, 33, 5, 0.5)",
                   padding: "4px 8px",
-                  marginTop: "4px"
+                  marginTop: "4px",
+                  marginBottom: "8px",
                 }}>
-                  <span style={{
+               <span style={{
                     fontSize: isMobile ? "12px" : "13px",
                     fontWeight: 500,
                     color: "#09555B"
                   }}>
                     {cat.catName}
-                  </span>
+                  </span>   
                 </div>
+
+                  <Button
+                    icon={<DownloadOutlined />}
+                    size={isMobile ? "small" : "middle"}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Evita que se active la vista previa
+                      handleDownload(cat.image, cat.catName);
+                    }}
+                    style={{
+                      backgroundColor: "#FFC857",
+                      borderColor: "#09555B",
+                      color: "#09555B"
+                    }}
+                  >
+                    {isMobile ? "" : "Descargar"}
+                  </Button>
+                </div>
+
+                
               </Card>
             ))
           )}

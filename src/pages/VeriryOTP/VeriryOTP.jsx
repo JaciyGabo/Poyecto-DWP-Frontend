@@ -33,7 +33,7 @@ const VeriryOTP = () => {
         setShowModal(false);
 
         
-          navigate("/login"); // Redirigir a la página de inicio de sesión
+          navigate("/dashboard"); // Redirigir a la página de inicio de sesión
       };
     
 
@@ -90,7 +90,7 @@ const VeriryOTP = () => {
               rules={[{ required: true, message: "¡Ingrese su codigo OTP!" }, { type: "text", message: "¡Ingrese un email válido!" }]}
             >
               <Input
-                placeholder="Ingrese suy codigo OTP"
+                placeholder="Ingrese su codigo OTP"
                 style={{ width: "100%", backgroundColor: "transparent", border: "2px solid #fff", color: "#fff", borderRadius: "30px" }}
                 className="custom-placeholder"
               />

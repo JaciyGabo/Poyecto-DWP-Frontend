@@ -7,7 +7,7 @@ const DatosCuriosos = () => {
 
   useEffect(() => {
     // Conectar con el servidor SSE
-    const eventSource = new EventSource("http://localhost:3000/events");
+    const eventSource = new EventSource("https://prrsaga-backend.onrender.com/events");
 
     eventSource.onmessage = (event) => {
       setFact(event.data);

@@ -1,4 +1,4 @@
-// MyFriends.jsx - Página principal mejorada
+// MyFriends.jsx - Con estado y función compartidos
 import { Row, Col } from "antd";
 import { useState, useEffect } from "react";
 import Friends from "../components/Friends/Friends";
@@ -10,6 +10,10 @@ const MyFriends = () => {
     isMobile: window.innerWidth <= 768,
     isTablet: window.innerWidth > 768 && window.innerWidth <= 992
   });
+  
+  // Estado compartido para la lista de amigos
+  const [friendsList, setFriendsList] = useState([]);
+  const [shouldRefreshFriends, setShouldRefreshFriends] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -25,6 +29,11 @@ const MyFriends = () => {
     };
   }, []);
 
+  // Función para actualizar amigos que se pasará a ambos componentes
+  const refreshFriends = () => {
+    setShouldRefreshFriends(prev => !prev);
+  };
+
   return (
     <div style={{ 
       minHeight: "79vh", 
@@ -36,13 +45,18 @@ const MyFriends = () => {
       <Row gutter={[20, 20]} justify="space-between" style={{ width: "100%" }}>
         {/* Sección de Amigos - En móvil ocupará toda la pantalla */}
         <Col xs={24} sm={24} md={16} lg={17} xl={17}>
-          <Friends screenSize={screenSize} />
+          <Friends 
+            screenSize={screenSize} 
+            friendsList={friendsList}
+            setFriendsList={setFriendsList}
+            shouldRefreshFriends={shouldRefreshFriends}
+          />
         </Col>
 
         {/* Panel derecho - En móvil se mostrará debajo */}
         <Col xs={24} sm={24} md={8} lg={7} xl={7}>
-          <AddFriend />
-          <FriendRequest />
+          <AddFriend refreshFriends={refreshFriends} />
+          <FriendRequest refreshFriends={refreshFriends} />
         </Col>
       </Row>
     </div>

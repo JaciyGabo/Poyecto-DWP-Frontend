@@ -1,7 +1,9 @@
 import { Card, Input, Button, message, Modal, Select } from 'antd';
-import { DownloadOutlined, SyncOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
+import { DownloadOutlined, ShareAltOutlined, HeartOutlined, HeartFilled, } from '@ant-design/icons';
 import { useState, useEffect, useRef } from 'react';
-import { saveFavoriteImage, shareCatPhoto, getFriendsList } from '../../api/api';
+import { saveFavoriteImage, shareCatPhoto, getFriendsList, getFavoriteCats } from '../../api/api';
+import sha256 from 'crypto-js/sha256';
+import encHex from 'crypto-js/enc-hex';
 
 const { Option } = Select;
 
@@ -17,42 +19,97 @@ const GenerateCats = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [imageHash, setImageHash] = useState(null);
 
-
+  // Cargar favoritos y amigos cuando el componente se monta
   useEffect(() => {
-    // Cargar amigos desde la API al montar el componente
-    const loadFriends = async () => {
+    const loadFavoritesAndFriends = async () => {
       try {
+        // Cargar favoritos desde la API o localStorage
+        const storedFavorites = JSON.parse(localStorage.getItem("catFavorites")) || [];
+        setFavorites(storedFavorites);
+        
+        // Intenta cargar también desde la API si existe esa función
+        try {
+          const response = await getFavoriteCats();
+          if (response && response.favorites) {
+            // Combinamos los favoritos de la API con los locales
+            const apiFavorites = response.favorites;
+            const combinedFavorites = [...storedFavorites];
+            
+            // Añadir solo los favoritos de la API que no estén ya en localStorage
+            apiFavorites.forEach(apiFav => {
+              if (!combinedFavorites.some(localFav => localFav.id === apiFav.id)) {
+                combinedFavorites.push(apiFav);
+              }
+            });
+            
+            setFavorites(combinedFavorites);
+            localStorage.setItem('catFavorites', JSON.stringify(combinedFavorites));
+          }
+        } catch (apiError) {
+          console.log('No se pudieron cargar favoritos desde la API:', apiError);
+          // Es normal si la función getFavoriteCats no existe, no mostramos error
+        }
+        
+        // Cargar amigos
         const friendsList = await getFriendsList();
         setFriends(friendsList);
       } catch (error) {
-        console.error('Error fetching friends:', error);
-        message.error(error.message || 'Error al cargar amigos');
+        console.error('Error al inicializar:', error);
+        message.error(error.message || 'Error al cargar datos iniciales');
       }
     };
 
-    loadFriends();
-  }, []);
-
-  useEffect(() => {
-    // Verifica si la imagen actual está en favoritos
-    const isLiked = favorites.some(fav => fav.url === imageUrl);
-    console.log("isLiked", isLiked)
-    setLiked(isLiked);
-
+    //loadFavoritesAndFriends();
+    
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
+  // Calcular el hash de la imagen actual cuando cambie o se cargue
+  useEffect(() => {
+    const calculateImageHash = async () => {
+      if (imgRef.current && imgRef.current.complete) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = imgRef.current.naturalWidth;
+          canvas.height = imgRef.current.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(imgRef.current, 0, 0);
+          const base64data = canvas.toDataURL('image/jpeg');
+          const hash = sha256(base64data).toString(encHex);
+          setImageHash(hash);
+          
+          // Verificar si esta imagen ya está en favoritos
+          const isLiked = favorites.some(fav => 
+            fav.hash === hash || // Si tiene hash almacenado
+            (fav.base64 && sha256(fav.base64).toString(encHex) === hash) // O calculamos el hash del base64
+          );
+          
+          setLiked(isLiked);
+        } catch (error) {
+          console.error('Error al calcular hash:', error);
+        }
+      }
+    };
+
+    
+    // Esperar a que la imagen se cargue completamente
+    if (imgRef.current) {
+      if (imgRef.current.complete) {
+        calculateImageHash();
+      } else {
+        imgRef.current.onload = calculateImageHash;
+      }
+    }
   }, [imageUrl, favorites]);
 
-  useEffect(() => {
-    const storedFavorites = JSON.parse(localStorage.getItem("catFavorites")) || [];
-    setFavorites(storedFavorites);
-  }, []);
+  
 
   const generateImage = () => {
     const timestamp = new Date().getTime();
@@ -61,6 +118,8 @@ const GenerateCats = () => {
     } else {
       setImageUrl(`https://cataas.com/cat/says/Hola c:?fontSize=60&fontColor=red&t=${timestamp}`);
     }
+    // Reseteamos el estado de liked hasta que se verifique la nueva imagen
+    setLiked(false);
   };
 
   const handleShare = async () => {
@@ -115,18 +174,35 @@ const GenerateCats = () => {
 
   const handleLike = async () => {
     try {
-      if (!imageUrl) {
+      if (!imageUrl || !imgRef.current) {
         message.warning('No hay imagen para guardar como favorita');
         return;
       }
 
-      // Si no está marcado como like, lo agregamos
-      const response = await saveFavoriteImage(imageUrl, text || 'Imagen de gato');
+      // Si ya está en favoritos, no hacemos nada
+      if (liked) {
+        message.info('Esta imagen ya está en tus favoritos');
+        return;
+      }
+
+      // Convertir la imagen en base64 usando canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = imgRef.current.naturalWidth;
+      canvas.height = imgRef.current.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgRef.current, 0, 0);
+      const base64data = canvas.toDataURL('image/jpeg'); // 🎯 Aquí está el Base64
+      const hash = sha256(base64data).toString(encHex);
+
+      // Enviar base64 como "imageUrl" al backend
+      const response = await saveFavoriteImage(base64data, text || 'Imagen de gato', hash);
 
       const newFavorite = {
         id: response.id || `local-${Math.random().toString(36).substr(2, 9)}`,
-        url: imageUrl,
-        text: text || 'Imagen de gato'
+        base64: base64data,
+        text: text || 'Imagen de gato',
+        hash: hash, // Guardamos el hash para comparar después
+        url: imageUrl // También guardamos la URL original
       };
 
       const updatedFavorites = [...favorites, newFavorite];
@@ -164,27 +240,26 @@ const GenerateCats = () => {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '16px' }}>
-        <div style={{  width: '100%', textAlign: 'center', Height: '30px', overflow: 'hidden', borderRadius: '8px',padding: '10px' }}>
+        <div style={{ width: '100%', textAlign: 'center', Height: '30px', overflow: 'hidden', borderRadius: '8px', padding: '10px' }}>
           {imageUrl && (
             <img
-            ref={imgRef}
-            src={imageUrl}
-            alt="Generated"
-            crossOrigin="anonymous"
-            style={{
-              width: isMobile ? '70%' : '40%',
-              maxWidth: '300px',
-              maxHeight: '300px',
-              borderRadius: '8px',
-              margin: '0 auto',
-              objectFit: 'contain' 
-            }}
-            onError={(e) => {
-              console.error('Error loading image:', e);
-              e.target.src = 'https://cataas.com/cat?t=' + new Date().getTime();
-            }}
-          />
-          
+              ref={imgRef}
+              src={imageUrl}
+              alt="Generated"
+              crossOrigin="anonymous"
+              style={{
+                width: isMobile ? '70%' : '40%',
+                maxWidth: '300px',
+                maxHeight: '300px',
+                borderRadius: '8px',
+                margin: '0 auto',
+                objectFit: 'contain'
+              }}
+              onError={(e) => {
+                console.error('Error loading image:', e);
+                e.target.src = 'https://cataas.com/cat?t=' + new Date().getTime();
+              }}
+            />
           )}
           <Button
             icon={!liked ? <HeartOutlined style={{ color: 'red', fontSize: "40px" }} /> : <HeartFilled style={{ color: 'red', fontSize: "40px" }} />}
@@ -193,65 +268,63 @@ const GenerateCats = () => {
           />
         </div>
 
-          {/* Modal para compartir */}
-      <Modal
-        title="Compartir imagen de gato"
-        visible={shareModalVisible}
-        onCancel={() => setShareModalVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setShareModalVisible(false)}>
-            Cancelar
-          </Button>,
-          <Button 
-            key="share" 
-            type="primary" 
-            loading={shareLoading}
-            onClick={handleShare}
-            style={{ backgroundColor: '#FFC857', borderColor: '#FFC857', color: '#09555B' }}
-          >
-            Compartir
-          </Button>,
-        ]}
-      >
-        <div style={{ marginBottom: '16px' }}>
-          <p style={{ marginBottom: '8px' }}>Selecciona un amigo:</p>
-          <Select
-            style={{ width: '100%' }}
-            placeholder="Buscar amigo..."
-            onChange={setSelectedFriend}
-            value={selectedFriend}
-            showSearch
-            optionFilterProp="children"
-            filterOption={(input, option) =>
-              option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-            }
-          >
-            {friends.map(friend => (
-              <Option key={friend} value={friend}>
-                {friend.split('@')[0]} {/* Muestra solo el nombre del email */}
-              </Option>
-            ))}
-          </Select>
-        </div>
-        <div style={{ marginBottom: '16px' }}>
-          <p style={{ marginBottom: '8px' }}>Mensaje (opcional):</p>
-          <Input.TextArea 
-            placeholder="Añade un mensaje..." 
-            value={textEdit}
-            onChange={(e) => setTextEdit(e.target.value)}
-            rows={3}
-          />
-        </div>
-        <div style={{ textAlign: 'center' }}>
-        
-        </div>
-      </Modal>
-
+        {/* Modal para compartir */}
+        <Modal
+          title="Compartir imagen de gato"
+          visible={shareModalVisible}
+          onCancel={() => setShareModalVisible(false)}
+          footer={[
+            <Button key="cancel" onClick={() => setShareModalVisible(false)}>
+              Cancelar
+            </Button>,
+            <Button
+              key="share"
+              type="primary"
+              loading={shareLoading}
+              onClick={handleShare}
+              style={{ backgroundColor: '#FFC857', borderColor: '#FFC857', color: '#09555B' }}
+            >
+              Compartir
+            </Button>,
+          ]}
+        >
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ marginBottom: '8px' }}>Selecciona un amigo:</p>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Buscar amigo..."
+              onChange={setSelectedFriend}
+              value={selectedFriend}
+              showSearch
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              }
+            >
+              {friends.map(friend => (
+                <Option key={friend} value={friend}>
+                  {friend.split('@')[0]} {/* Muestra solo el nombre del email */}
+                </Option>
+              ))}
+            </Select>
+          </div>
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ marginBottom: '8px' }}>Mensaje (opcional):</p>
+            <Input.TextArea
+              placeholder="Añade un mensaje..."
+              value={textEdit}
+              onChange={(e) => setTextEdit(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div style={{ textAlign: 'center' }}>
+          </div>
+        </Modal>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: '10px', flexWrap: 'wrap' }}>
         <Button icon={<DownloadOutlined />} onClick={downloadImage} style={{ minWidth: '40px', height: '40px' }} />
-        <Button icon={<SyncOutlined />} onClick={openShareModal} style={{ minWidth: '40px', height: '40px' }} />
+        {/*<Button icon={<ShareAltOutlined />} onClick={openShareModal} style={{ minWidth: '40px', height: '40px' }} />*/}
       </div>
     </Card>
   );

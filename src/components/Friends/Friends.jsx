@@ -2,37 +2,42 @@ import { Avatar, Button, Card, Col, Row, message } from "antd";
 import { useState, useEffect } from "react";
 import { getFriendsList } from "../../api/api";
 
-const Friends = ({ screenSize }) => {
+const Friends = ({ screenSize, shouldRefreshFriends, friendsList, setFriendsList }) => {
   const { isMobile, isTablet } = screenSize || {
     isMobile: window.innerWidth <= 768,
     isTablet: window.innerWidth > 768 && window.innerWidth <= 992
   };
 
-  const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Función para cargar los amigos
+  const fetchFriends = async () => {
+    setLoading(true);
+    try {
+      const response = await getFriendsList();
+      console.log("Response from getFriendsList:", response);
+      // Asegúrate de que response es un array antes de mapear
+      const friendsArray = Array.isArray(response) ? response : response.friends || [];
+
+      const mappedFriends = friendsArray.map(friend => ({
+        email: friend.username,
+        name: getDisplayName(friend.username),
+        color: getAvatarColor(friend.username)
+      }));
+      
+      setFriendsList(mappedFriends);
+    } catch (error) {
+      console.error("Error fetching friends:", error);
+      message.error(error.message || "Error al cargar amigos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar amigos al inicio y cuando cambie shouldRefreshFriends
   useEffect(() => {
-    const fetchFriends = async () => {
-      try {
-        const response = await getFriendsList();
-        // Asegúrate de que response es un array antes de mapear
-        const friendsArray = Array.isArray(response) ? response : response.friends || [];
-
-        setFriends(friendsArray.map(email => ({
-          email,
-          name: getDisplayName(email),
-          color: getAvatarColor(email)
-        })));
-      } catch (error) {
-        console.error("Error fetching friends:", error);
-        message.error(error.message || "Error al cargar amigos");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchFriends();
-  }, []);
+  }, [shouldRefreshFriends]);
 
   // Función para convertir email a nombre mostrable
   const getDisplayName = (email) => {
@@ -71,14 +76,14 @@ const Friends = ({ screenSize }) => {
         gutter={[isMobile ? 8 : 16, 16]}
         justify="center"
       >
-        {friends.length === 0 && !loading ? (
+        {friendsList.length === 0 && !loading ? (
           <Col span={24} style={{ textAlign: 'center', padding: '20px' }}>
             <p style={{ color: '#09555B', fontSize: isMobile ? '14px' : '16px' }}>
               Aún no tienes amigos agregados
             </p>
           </Col>
         ) : (
-          friends.map((friend, index) => (
+          friendsList.map((friend, index) => (
             <Col
               key={`${friend.email}-${index}`}
               xs={12}

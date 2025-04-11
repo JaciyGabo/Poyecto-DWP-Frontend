@@ -16,7 +16,7 @@ const Login = () => {
     try {
       setEmail(values.username);
       const data = await loginUser(values.username, values.password);
-
+      console.log(data);
       localStorage.setItem("token", data.token);
       setShowModal(true);
       setMessagee(data.message);

@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const API_BASE_URL = "https://prrsaga-backend.onrender.com";
+//const API_BASE_URL = "http://localhost:3000";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,6 +10,34 @@ export const api = axios.create({
   },
 });
 
+// Interceptor de solicitudes
+api.interceptors.request.use(
+  (config) => {
+    // Obtener el token de autenticación del almacenamiento local
+    const token = localStorage.getItem("token");
+    
+    // Si existe un token, agregarlo a las cabeceras de la solicitud
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    
+    // Opcional: Añadir timestamp para prevenir caché en solicitudes GET
+    if (config.method === 'get') {
+      config.params = {
+        ...config.params,
+        _t: new Date().getTime()
+      };
+    }
+    
+    return config;
+  },
+  (error) => {
+    console.error("Error en la solicitud:", error);
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor de respuestas
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -71,23 +100,15 @@ export const updatePassword = async (email, newPassword) => {
 
 export const logoutUser = async () => {
   try {
-    const token = localStorage.getItem("token");
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-    const response = await api.post("/logout", null, config);
+    const response = await api.post("/logout");
 
     // Limpiar el token del frontend
-    localStorage.removeItem("token"); // o sessionStorage
-    delete api.defaults.headers.common["Authorization"];
+    localStorage.removeItem("token");
 
     return response.data;
   } catch (error) {
     // Si hay error, limpiar el token de todas formas
     localStorage.removeItem("token");
-    delete api.defaults.headers.common["Authorization"];
 
     throw error.response?.data || {
       message: "Error al cerrar sesión"
@@ -95,18 +116,9 @@ export const logoutUser = async () => {
   }
 };
 
-export const saveFavoriteImage = async (imageUrl, text) => {
+export const saveFavoriteImage = async (imageUrl, text, hash) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await api.post(
-      '/save-favorite',
-      { imageUrl, text },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await api.post('/save-favorite', { imageUrl, text, hash });
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Error al guardar favorito' };
@@ -116,16 +128,8 @@ export const saveFavoriteImage = async (imageUrl, text) => {
 export const removeFavorite = async (favoriteId) => {
   try {
     if (!favoriteId) throw new Error("El ID del favorito es inválido");
-
-    const token = localStorage.getItem("token");
-    if (!token || token.length < 10) throw new Error("Token inválido");
-
-    const response = await api.delete(`/remove-favorite/${favoriteId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
+    
+    const response = await api.delete(`/remove-favorite/${favoriteId}`);
     return response.data;
   } catch (error) {
     console.error("Error in removeFavorite:", error);
@@ -135,16 +139,7 @@ export const removeFavorite = async (favoriteId) => {
 
 export const sendFriendRequest = async (email) => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await api.post(
-      '/add-friend',
-      { email },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await api.post('/add-friend', { email });
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: 'Error al enviar solicitud de amistad' };
@@ -153,16 +148,7 @@ export const sendFriendRequest = async (email) => {
 
 export const getFriendRequests = async () => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Debes iniciar sesión para ver solicitudes');
-    }
-
-    const response = await api.get('/friend-requests', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await api.get('/friend-requests');
     return response.data;
   } catch (error) {
     console.error('Error getting friend requests:', error);
@@ -172,20 +158,7 @@ export const getFriendRequests = async () => {
 
 export const acceptFriendRequest = async (fromUser) => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Debes iniciar sesión para aceptar solicitudes');
-    }
-
-    const response = await api.post(
-      '/accept-request',
-      { fromUser },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await api.post('/accept-request', { fromUser });
     return response.data;
   } catch (error) {
     console.error('Error accepting friend request:', error);
@@ -195,18 +168,7 @@ export const acceptFriendRequest = async (fromUser) => {
 
 export const getFriendsList = async () => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Debes iniciar sesión para ver tus amigos');
-    }
-
-    const response = await api.get('/friends', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    // Devuelve directamente response.data.friends o un array vacío si no existe
+    const response = await api.get('/friends');
     return response.data?.friends || [];
   } catch (error) {
     console.error('Error getting friends list:', error);
@@ -214,22 +176,30 @@ export const getFriendsList = async () => {
   }
 };
 
+export const updateUserProfile = async (userData) => {
+  try {
+    const response = await api.post('/update-profile', userData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error.response?.data || { message: 'Error al actualizar perfil' };
+  }
+}
+
+// En tu archivo api/api.js
+export const getUserData = async () => {
+  try {
+    const response = await api.get('/user-data');
+    return response.data?.userData || {};
+  } catch (error) {
+    console.error('Error getting user data:', error);
+    throw error.response?.data || { message: 'Error al obtener datos del usuario' };
+  }
+};
+
 export const shareCatPhoto = async (toUser, photoUrl, text = '') => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Debes iniciar sesión para compartir fotos');
-    }
-
-    const response = await api.post(
-      '/share-photo',
-      { toUser, photoUrl, text },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await api.post('/share-photo', { toUser, photoUrl, text });
     return response.data;
   } catch (error) {
     console.error('Error sharing photo:', error);
@@ -239,18 +209,7 @@ export const shareCatPhoto = async (toUser, photoUrl, text = '') => {
 
 export const getSharedCats = async () => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Debes iniciar sesión para ver tus gatos compartidos');
-    }
-
-    const response = await api.get('/my-cats', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    //console.log(response)
+    const response = await api.get('/my-cats');
     return response.data.sharedPhotos || [];
   } catch (error) {
     console.error('Error getting shared cats:', error);
@@ -260,21 +219,8 @@ export const getSharedCats = async () => {
 
 export const getFavoriteCats = async (lastVisible = null) => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Debes iniciar sesión para ver tus favoritos');
-    }
-
     const params = lastVisible ? { lastVisible } : {};
-    const response = await api.get('/favorite-cats', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      params
-    });
-
-    //console.log("Gatos favoritos:", response.data);
-
+    const response = await api.get('/favorite-cats', { params });
     return response.data;
   } catch (error) {
     console.error('Error getting favorite cats:', error);
